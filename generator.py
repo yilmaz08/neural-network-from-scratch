@@ -5,19 +5,21 @@ import json
 import zlib
 
 ### EXPORTING ###
-def export_network(network: Network, filename: str, with_weigths: bool = True) -> None:
+def export_network_file(network: Network, filename: str, with_weigths: bool = True, compress: bool = False) -> None:
+    content = export_network(network, with_weigths, compress)
+    if compress: content = zlib.compress(content)
+    with open(filename, "wb") as file:
+        file.write(content)
+
+def export_network(network: Network, with_weigths: bool = True) -> None:
     new_network = {
-        "input": export_layer(network.input_layer, False, network.input_layer.names),
-        "output": export_layer(network.output_layer, with_weigths, network.output_layer.names),
+        "input": export_layer(network.input_layer, False, network.input_layer.names), 
+        "output": export_layer(network.output_layer, with_weigths, network.output_layer.names), 
         "hidden": []
     }
     for hidden_layer in network.hidden_layers:
         new_network["hidden"].append(export_layer(hidden_layer, with_weigths, None))
-
-    with open(filename, "wb") as file:
-        content = json.dumps(new_network)
-        compressed_content = zlib.compress(content.encode())
-        file.write(compressed_content)
+    return json.dumps(new_network)
 
 def export_layer(layer: Layer, with_weights: bool = True, names: list[str] = None) -> dict:
     new_layer = {"activation": layer.activation_function.__name__}
@@ -35,44 +37,56 @@ def export_layer(layer: Layer, with_weights: bool = True, names: list[str] = Non
         new_layer["neurons"] = new_neurons    
     return new_layer
 
+### IMPORTING ###
+def import_network_file(filename: str, compressed: bool = False) -> Network:
+    try:
+        with open(filename, "rb") as file:
+            if compressed:
+                content = zlib.decompress(file.read())
+                data = json.loads(content)
+            else:
+                data = json.load(file)
+        return import_network(data)
+    except:
+        raise Exception("Error while reading the network")
 
-# example_network = Network(
-#     input_layer=Layer(
-#         neurons=[
-#             Neuron(bias=0.1, weights={0: 0.1, 1: 0.2}),
-#             Neuron(bias=0.2, weights={0: 0.2, 1: 0.3}),
-#             Neuron(bias=0.3, weights={0: 0.3, 1: 0.4})
-#         ],
-#         activation_function=activation_methods.relu
-#     ),
-#     hidden_layers=[
-#         Layer(
-#             neurons=[
-#                 Neuron(bias=0.1, weights={0: 0.1, 1: 0.2}),
-#                 Neuron(bias=0.2, weights={0: 0.2, 1: 0.3}),
-#                 Neuron(bias=0.3, weights={0: 0.3, 1: 0.4})
-#             ],
-#             activation_function=activation_methods.relu
-#         ),
-#         Layer(
-#             neurons=[
-#                 Neuron(bias=0.1, weights={0: 0.1, 1: 0.2}),
-#                 Neuron(bias=0.2, weights={0: 0.2, 1: 0.3}),
-#                 Neuron(bias=0.3, weights={0: 0.3, 1: 0.4})
-#             ],
-#             activation_function=activation_methods.relu
-#         )
-#     ],
-#     output_layer=Layer(
-#         neurons=[
-#             Neuron(bias=0.1, weights={0: 0.1, 1: 0.2}),
-#             Neuron(bias=0.2, weights={0: 0.2, 1: 0.3}),
-#             Neuron(bias=0.3, weights={0: 0.3, 1: 0.4})
-#         ],
-#         activation_function=activation_methods.relu,
-#         names=["output1", "output2", "output3"]
-#     )
-# )
+def import_network(data: dict) -> Network:
+    try:
+        input_layer = data["input"]
+        output_layer = data["output"]
+        hidden_layers = data["hidden"]
 
-# print(export_network(example_network, "models/example_network.nn", False))
-# print(export_network(example_network, "models/example_network.nnw", True))
+        new_hidden_layers = []
+        for hidden_layer in hidden_layers:
+            new_hidden_layers.append(import_layer(hidden_layer))
+
+        return Network(
+            input_layer=import_layer(input_layer),
+            output_layer=import_layer(output_layer),
+            hidden_layers=new_hidden_layers
+        )
+    except:
+        raise Exception("Error while importing the network")
+
+def import_layer(data: dict) -> Layer:
+    names = []
+    new_neurons = []
+    if type(data["neurons"]) == int:
+        names = None
+        for i in range(data["neurons"]):
+            new_neurons.append(Neuron(bias=None, weights=None)) # default
+    else:
+        for neuron in data["neurons"]:
+            if "weights" in neuron and "bias" in neuron:
+                new_neurons.append(Neuron(bias=neuron["bias"], weights=neuron["weights"]))
+            if "name" in neuron and names is not None:
+                names.append(neuron["name"])
+            else:
+                names = None
+
+    new_layer = Layer(
+        activation_function=activation_methods.__dict__[data["activation"]], # Get the function from the module
+        neurons=new_neurons,
+        names=names
+    )
+    return new_layer

@@ -3,6 +3,9 @@ class Neuron:
     activation = None
     def __init__(self, bias: float, weights: dict[int, float] = {}): self.bias, self.weights = bias, weights
     def activate(self, inputs: dict = None) -> None:
+        if self.bias is None:
+            self.activation = 0
+            return
         self.activation = self.bias
         if inputs is None: return
         for key, value in inputs.items():
