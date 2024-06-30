@@ -1,6 +1,6 @@
 import numpy as np
 class Neuron: 
-    activation = None
+    activation = 0
     def __init__(self, bias: float, weights: dict[int, float] = {}): self.bias, self.weights = bias, weights
     def activate(self, inputs: dict = None) -> None:
         if self.bias is None:
@@ -43,7 +43,6 @@ class Layer:
         for key, value in self.output(self.names).items():
             string += f"{key}: {value:.4f} | "
         return string[:-3] + "\n"
-        
     
 class Network:
     def __init__(self, input_layer: Layer, hidden_layers: list[Layer], output_layer: Layer):
